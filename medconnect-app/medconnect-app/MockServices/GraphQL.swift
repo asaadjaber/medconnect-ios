@@ -1,13 +1,12 @@
+//
+//  GraphQL.swift
+//  medconnect-app
+//
+//  Created by Asaad Jaber on 13/09/2024.
+//
+
 import Foundation
-
-// MARK: - Data Model
-
-struct ProcedureCard: Codable {
-    let id: String
-    let imageName: String
-    let price: Int
-    let procedures: [String]
-}
+import UIKit
 
 // MARK: - GraphQL Query
 
@@ -62,3 +61,4 @@ extension MockGraphQLService {
     }
     """
 }
+

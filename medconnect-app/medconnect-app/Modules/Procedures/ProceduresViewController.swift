@@ -1,8 +1,11 @@
 import UIKit
+import Combine
 
-// MARK: - ScrollableViewController
+// MARK: - ProceduresViewController
 
-class ViewController: UIViewController {
+class ProceduresViewController: UIViewController {
+        
+    private var cancellables = Set<AnyCancellable>()
     
     private lazy var tableView: UITableView = {
         let tv = UITableView(frame: .zero, style: .grouped)
@@ -11,14 +14,23 @@ class ViewController: UIViewController {
         return tv
     }()
     
-    private var procedureCards: [ProcedureCard] = []
+    private var procedureViewModel: ProceduresViewModel
+    
+    init(viewModel: ProceduresViewModel) {
+        self.procedureViewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
+                        
+        tableView.backgroundColor = .white
         
         setupTableView()
-        fetchProcedureCards()
-        tableView.backgroundColor = .white
     }
     
     private func setupTableView() {
@@ -33,25 +45,18 @@ class ViewController: UIViewController {
         tableView.register(CarouselTableViewCell.self, forCellReuseIdentifier: CarouselTableViewCell.identifier)
         tableView.dataSource = self
         tableView.delegate = self
+        
+        procedureViewModel.$procedureCards
+            .sink(receiveValue: applySnapshot)
+            .store(in: &cancellables)
     }
     
-    private func fetchProcedureCards() {
-        MockGraphQLService.shared.fetchProcedureCards { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let cards):
-                    self?.procedureCards = cards
-                    self?.tableView.reloadData()
-                case .failure(let error):
-                    print("Failed to fetch procedure cards: \(error)")
-                    // Handle error (e.g., show an alert to the user)
-                }
-            }
-        }
+    private func applySnapshot(_ procedureCards: [ProcedureCard]) {
+        tableView.reloadData()
     }
 }
 
-extension ViewController: UITableViewDataSource, UITableViewDelegate {
+extension ProceduresViewController: UITableViewDataSource, UITableViewDelegate {
     func numberOfSections(in tableView: UITableView) -> Int {
         return 3 // Example: Header, Carousel, Footer
     }
@@ -73,7 +78,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             guard let cell = tableView.dequeueReusableCell(withIdentifier: CarouselTableViewCell.identifier, for: indexPath) as? CarouselTableViewCell else {
                 fatalError("Unable to dequeue CarouselTableViewCell")
             }
-            cell.procedureCards = procedureCards
+            cell.procedureCards = procedureViewModel.procedureCards
             return cell
         case 2:
             // Footer cell
@@ -99,39 +104,5 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         default:
             return UITableView.automaticDimension
         }
-    }
-}
-
-// MARK: - CarouselLayout
-
-class CarouselLayout: UICollectionViewFlowLayout {
-    override init() {
-        super.init()
-        scrollDirection = .horizontal
-        minimumLineSpacing = 20
-        itemSize = CGSize(width: UIScreen.main.bounds.width * 0.75, height: 300)
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    override func targetContentOffset(forProposedContentOffset proposedContentOffset: CGPoint, withScrollingVelocity velocity: CGPoint) -> CGPoint {
-        guard let collectionView = collectionView else { return super.targetContentOffset(forProposedContentOffset: proposedContentOffset, withScrollingVelocity: velocity) }
-        
-        let targetRect = CGRect(x: proposedContentOffset.x, y: 0, width: collectionView.bounds.size.width, height: collectionView.bounds.size.height)
-        guard let rectAttributes = layoutAttributesForElements(in: targetRect) else { return proposedContentOffset }
-        
-        var offsetAdjustment = CGFloat.greatestFiniteMagnitude
-        let horizontalCenter = proposedContentOffset.x + collectionView.bounds.size.width / 2
-        
-        for layoutAttributes in rectAttributes {
-            let itemHorizontalCenter = layoutAttributes.center.x
-            if abs(itemHorizontalCenter - horizontalCenter) < abs(offsetAdjustment) {
-                offsetAdjustment = itemHorizontalCenter - horizontalCenter
-            }
-        }
-        
-        return CGPoint(x: proposedContentOffset.x + offsetAdjustment, y: proposedContentOffset.y)
     }
 }
